@@ -1,0 +1,87 @@
+pipeline {
+    agent { label 'Linux-worker' }
+
+    options {
+        timeout(time: 5, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '5'))
+    }
+
+    parameters {
+        string(name: 'BRANCH_NAME', defaultValue: 'master', description: 'Git branch to checkout')
+        booleanParam(name: 'FAIL_TEST', defaultValue: false, description: 'Simulate test failure')
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                script {
+                    // Validate branch existence
+                    def status = sh(
+                        script: "git ls-remote --heads https://github.com/Sonal0409/DevOpsCodeDemo.git ${params.BRANCH_NAME}",
+                        returnStatus: true
+                    )
+
+                    if (status != 0) {
+                        error "Branch '${params.BRANCH_NAME}' does not exist!"
+                    }
+                }
+
+                // Actual checkout
+                git branch: params.BRANCH_NAME,
+                    url: 'https://github.com/Sonal0409/DevOpsCodeDemo.git'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                // Create build log file for archiving
+                sh 'echo "Building application..." | tee build.log'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                retry(2) {
+                    script {
+                        if (params.FAIL_TEST) {
+                            error "Test failed intentionally!"
+                        }
+                        echo "Tests passed successfully"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            when {
+                expression { currentBuild.currentResult == 'SUCCESS' }
+            }
+            steps {
+                echo "Deploying application..."
+            }
+        }
+    }
+
+    post {
+        failure {
+            echo "FAILURE ALERT: Job=${env.JOB_NAME} Build=#${env.BUILD_NUMBER}"
+            echo "Simulating email to: devops-team@company.com"
+
+            sh '''
+                echo "Subject: Jenkins Build FAILED - $JOB_NAME #$BUILD_NUMBER" > /tmp/failure-mail.txt
+                echo "Build URL: $BUILD_URL" >> /tmp/failure-mail.txt
+                cat /tmp/failure-mail.txt
+            '''
+        }
+
+        success {
+            archiveArtifacts artifacts: 'build.log', allowEmptyArchive: true
+            echo "Build succeeded — log archived"
+        }
+
+        aborted {
+            echo "Build aborted — likely timeout or agent issue"
+        }
+    }
+}

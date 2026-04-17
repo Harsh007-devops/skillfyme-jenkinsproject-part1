@@ -1,0 +1,79 @@
+#jobA
+
+pipeline {
+    agent any
+
+    stages {
+        stage('Checkout Code') {
+            steps {
+                git url: 'https://github.com/Sonal0409/DevOpsCodeDemo.git', branch: 'master'
+            }
+        }
+
+        stage('Info') {
+            steps {
+                echo "Code fetched successfully from GitHub"
+            }
+        }
+    }
+}
+
+#jobB
+
+pipeline {
+    agent any
+
+    stages {
+        stage('Unit Test') {
+            steps {
+                script {
+                    echo "Running unit tests..."
+
+                    def failTest = false   // change to true to test failure
+
+                    if (failTest) {
+                        error("Unit tests failed!")
+                    } else {
+                        echo "Unit tests passed!"
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+#jobC
+
+pipeline {
+    agent any
+
+    parameters {
+        choice(name: 'DEPLOY_ENV', choices: ['dev', 'stage', 'prod'], description: 'Select environment')
+    }
+
+    stages {
+
+        stage('Approval (Manual Gate)') {
+            steps {
+                input message: "Approve deployment to ${params.DEPLOY_ENV}?"
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                script {
+                    if (params.DEPLOY_ENV == 'dev') {
+                        echo "Deploying to Development"
+                    } 
+                    else if (params.DEPLOY_ENV == 'stage') {
+                        echo "Deploying to Staging"
+                    } 
+                    else {
+                        echo "Deploying to Production (Requires Approval)"
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,20 @@
+#EdgeTest
+
+pipeline {
+    agent any
+
+    stages {
+        stage('Long Running') {
+            steps {
+                echo "Job started..."
+                sh 'sleep 120'
+            }
+        }
+    }
+
+    post {
+        failure {
+            echo "Build failed due to agent issue!"
+        }
+    }
+}
